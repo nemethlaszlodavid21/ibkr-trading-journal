@@ -4,7 +4,10 @@ from pathlib import Path
 import plotly.express as px
 import streamlit as st
 
-from ibkr_parser import ibkr_tranzakciok_betoltese
+from ibkr_parser import (
+    ibkr_tranzakciok_betoltese,
+    kimutatas_idoszak_lekerese,
+)
 from metrics import teljesitmeny_mutatok_szamitasa
 from trade_engine import lezart_tradek_letrehozasa
 
@@ -78,6 +81,27 @@ st.markdown(
     font-weight: 700;
 }
 
+.period-card {
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.4rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #1e3a5f;
+    font-size: 0.92rem;
+}
+
+.period-label {
+    margin-right: 0.35rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.period-value {
+    color: #1e3a5f;
+    font-weight: 700;
+}
+
 div[data-testid="stMetric"] {
     min-height: 115px;
     padding: 1rem 1.1rem;
@@ -141,6 +165,10 @@ def adatok_betoltese(csv_tartalom):
         csv_utvonal = Path(ideiglenes_mappa) / "ibkr_export.csv"
         csv_utvonal.write_bytes(csv_tartalom)
 
+        kimutatas_idoszak = kimutatas_idoszak_lekerese(
+            csv_utvonal
+        )
+
         tranzakciok = ibkr_tranzakciok_betoltese(
             csv_utvonal
         )
@@ -149,7 +177,11 @@ def adatok_betoltese(csv_tartalom):
             tranzakciok
         )
 
-    return tranzakciok, lezart_tradek
+    return (
+        tranzakciok,
+        lezart_tradek,
+        kimutatas_idoszak,
+    )
 
 
 def grafikon_formazasa(grafikon, magassag=390):
@@ -233,7 +265,11 @@ if feltoltott_fajl is None:
 
 
 try:
-    tranzakciok_df, lezart_tradek_df = adatok_betoltese(
+    (
+        tranzakciok_df,
+        lezart_tradek_df,
+        kimutatas_idoszak,
+    ) = adatok_betoltese(
         feltoltott_fajl.getvalue()
     )
 
@@ -251,6 +287,23 @@ st.sidebar.success(
 
 st.sidebar.caption(
     f"Fájl: {feltoltott_fajl.name}"
+)
+
+st.sidebar.markdown("### Vizsgált időszak")
+
+st.sidebar.info(
+    kimutatas_idoszak
+)
+
+
+st.markdown(
+    f"""
+<div class="period-card">
+<span class="period-label">Vizsgált időszak:</span>
+<span class="period-value">{kimutatas_idoszak}</span>
+</div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
