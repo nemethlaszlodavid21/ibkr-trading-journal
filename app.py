@@ -19,10 +19,7 @@ st.set_page_config(
 @st.cache_data
 def adatok_betoltese(csv_tartalom):
     with tempfile.TemporaryDirectory() as ideiglenes_mappa:
-        csv_utvonal = (
-            Path(ideiglenes_mappa) / "ibkr_export.csv"
-        )
-
+        csv_utvonal = Path(ideiglenes_mappa) / "ibkr_export.csv"
         csv_utvonal.write_bytes(csv_tartalom)
 
         tranzakciok = ibkr_tranzakciok_betoltese(
@@ -37,7 +34,6 @@ def adatok_betoltese(csv_tartalom):
 
 
 st.title("📈 IBKR Trading Journal")
-
 st.caption(
     "Saját IBKR kereskedési teljesítmény elemzése"
 )
@@ -158,6 +154,40 @@ deviza_sor = deviza_mutatok_df[
 
 
 # --------------------------------------------------
+# KUMULÁLT P/L ÉS DRAWDOWN SZÁMÍTÁSA
+# --------------------------------------------------
+
+szurt_tradek_df = (
+    szurt_tradek_df
+    .sort_values("zaras_datuma")
+    .reset_index(drop=True)
+)
+
+szurt_tradek_df["kumulalt_pl"] = (
+    szurt_tradek_df["realizalt_pl"].cumsum()
+)
+
+szurt_tradek_df["korabbi_csucs"] = (
+    szurt_tradek_df["kumulalt_pl"]
+    .cummax()
+    .clip(lower=0)
+)
+
+szurt_tradek_df["drawdown"] = (
+    szurt_tradek_df["kumulalt_pl"]
+    - szurt_tradek_df["korabbi_csucs"]
+)
+
+maximum_drawdown = abs(
+    szurt_tradek_df["drawdown"].min()
+)
+
+aktualis_drawdown = abs(
+    szurt_tradek_df["drawdown"].iloc[-1]
+)
+
+
+# --------------------------------------------------
 # DEVIZÁNKÉNTI MUTATÓK
 # --------------------------------------------------
 
@@ -209,18 +239,28 @@ legrosszabb_oszlop.metric(
 )
 
 
-# --------------------------------------------------
-# KUMULÁLT P/L
-# --------------------------------------------------
+drawdown_oszlop, aktualis_drawdown_oszlop = st.columns(2)
 
-szurt_tradek_df = szurt_tradek_df.sort_values(
-    "zaras_datuma"
+drawdown_oszlop.metric(
+    "Maximum drawdown",
+    (
+        f"-{maximum_drawdown:,.2f} "
+        f"{kivalasztott_deviza}"
+    ),
 )
 
-szurt_tradek_df["kumulalt_pl"] = szurt_tradek_df[
-    "realizalt_pl"
-].cumsum()
+aktualis_drawdown_oszlop.metric(
+    "Aktuális drawdown",
+    (
+        f"-{aktualis_drawdown:,.2f} "
+        f"{kivalasztott_deviza}"
+    ),
+)
 
+
+# --------------------------------------------------
+# KUMULÁLT P/L GRAFIKON
+# --------------------------------------------------
 
 kumulalt_grafikon = px.line(
     szurt_tradek_df,
@@ -250,8 +290,56 @@ kumulalt_grafikon.update_layout(
     hovermode="x unified"
 )
 
+kumulalt_grafikon.add_hline(
+    y=0,
+    line_dash="dash",
+    line_color="#64748b",
+)
+
 st.plotly_chart(
     kumulalt_grafikon,
+    use_container_width=True,
+)
+
+
+# --------------------------------------------------
+# DRAWDOWN GRAFIKON
+# --------------------------------------------------
+
+drawdown_grafikon = px.area(
+    szurt_tradek_df,
+    x="zaras_datuma",
+    y="drawdown",
+    title=(
+        f"Drawdown – "
+        f"{kivalasztott_deviza}"
+    ),
+    labels={
+        "zaras_datuma": "Zárás dátuma",
+        "drawdown": (
+            f"Drawdown "
+            f"({kivalasztott_deviza})"
+        ),
+    },
+)
+
+drawdown_grafikon.update_traces(
+    line_color="#dc2626",
+    fillcolor="rgba(220, 38, 38, 0.30)",
+)
+
+drawdown_grafikon.update_layout(
+    hovermode="x unified"
+)
+
+drawdown_grafikon.add_hline(
+    y=0,
+    line_dash="dash",
+    line_color="#64748b",
+)
+
+st.plotly_chart(
+    drawdown_grafikon,
     use_container_width=True,
 )
 
@@ -312,7 +400,6 @@ havi_grafikon = px.bar(
     },
 )
 
-
 havi_grafikon.update_layout(
     showlegend=False
 )
@@ -320,7 +407,6 @@ havi_grafikon.update_layout(
 havi_grafikon.update_traces(
     textposition="outside"
 )
-
 
 st.plotly_chart(
     havi_grafikon,
