@@ -1,0 +1,18 @@
+# Személyes pénzügyi adatok
+data/
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtuális környezet
+.venv/
+venv/
+
+# Streamlit titkos adatok
+.streamlit/secrets.toml
+
+# macOS
+.DS_Store
