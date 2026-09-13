@@ -59,7 +59,6 @@ if feltoltott_fajl is None:
         "A dashboard megjelenítéséhez tölts fel "
         "egy IBKR Tevékenységkimutatás CSV-fájlt."
     )
-
     st.stop()
 
 
@@ -72,7 +71,6 @@ except Exception as hiba:
     st.error(
         "A CSV-fájl feldolgozása nem sikerült."
     )
-
     st.exception(hiba)
     st.stop()
 
@@ -81,6 +79,14 @@ st.sidebar.success(
     f"{len(tranzakciok_df)} tranzakció "
     "sikeresen betöltve."
 )
+
+
+if lezart_tradek_df.empty:
+    st.warning(
+        "A feltöltött kimutatásban nincs "
+        "lezáró tranzakció."
+    )
+    st.stop()
 
 
 # --------------------------------------------------
@@ -251,6 +257,78 @@ st.plotly_chart(
 
 
 # --------------------------------------------------
+# HAVI P/L
+# --------------------------------------------------
+
+szurt_tradek_df["honap"] = (
+    szurt_tradek_df["zaras_datuma"]
+    .dt.to_period("M")
+    .astype(str)
+)
+
+
+havi_eredmeny_df = (
+    szurt_tradek_df
+    .groupby(
+        "honap",
+        as_index=False
+    )["realizalt_pl"]
+    .sum()
+)
+
+
+havi_eredmeny_df["eredmeny_tipusa"] = (
+    havi_eredmeny_df["realizalt_pl"].apply(
+        lambda eredmeny: (
+            "Nyereség"
+            if eredmeny >= 0
+            else "Veszteség"
+        )
+    )
+)
+
+
+havi_grafikon = px.bar(
+    havi_eredmeny_df,
+    x="honap",
+    y="realizalt_pl",
+    color="eredmeny_tipusa",
+    color_discrete_map={
+        "Nyereség": "#16a34a",
+        "Veszteség": "#dc2626",
+    },
+    text_auto=".2f",
+    title=(
+        f"Havi realizált P/L – "
+        f"{kivalasztott_deviza}"
+    ),
+    labels={
+        "honap": "Hónap",
+        "realizalt_pl": (
+            f"Realizált P/L "
+            f"({kivalasztott_deviza})"
+        ),
+        "eredmeny_tipusa": "Eredmény",
+    },
+)
+
+
+havi_grafikon.update_layout(
+    showlegend=False
+)
+
+havi_grafikon.update_traces(
+    textposition="outside"
+)
+
+
+st.plotly_chart(
+    havi_grafikon,
+    use_container_width=True,
+)
+
+
+# --------------------------------------------------
 # INSTRUMENTUMONKÉNTI EREDMÉNY
 # --------------------------------------------------
 
@@ -298,7 +376,32 @@ st.plotly_chart(
 
 
 # --------------------------------------------------
-# LEZÁRT TRANZAKCIÓK TÁBLÁZATA
+# HAVI EREDMÉNYTÁBLÁZAT
+# --------------------------------------------------
+
+st.subheader("Havi eredmények")
+
+st.dataframe(
+    havi_eredmeny_df[
+        [
+            "honap",
+            "realizalt_pl",
+        ]
+    ],
+    column_config={
+        "honap": "Hónap",
+        "realizalt_pl": st.column_config.NumberColumn(
+            f"Realizált P/L ({kivalasztott_deviza})",
+            format="%.2f",
+        ),
+    },
+    use_container_width=True,
+    hide_index=True,
+)
+
+
+# --------------------------------------------------
+# LEZÁRT TRANZAKCIÓK
 # --------------------------------------------------
 
 st.subheader("Lezárt tranzakciók")
@@ -318,6 +421,24 @@ st.dataframe(
     szurt_tradek_df[
         megjelenitendo_oszlopok
     ],
+    column_config={
+        "trade_id": "Trade ID",
+        "ticker": "Ticker",
+        "zaras_datuma": "Zárás dátuma",
+        "mennyiseg": st.column_config.NumberColumn(
+            "Mennyiség",
+            format="%.4f",
+        ),
+        "zarasi_ar": st.column_config.NumberColumn(
+            "Zárási ár",
+            format="%.4f",
+        ),
+        "realizalt_pl": st.column_config.NumberColumn(
+            f"Realizált P/L ({kivalasztott_deviza})",
+            format="%.2f",
+        ),
+        "eredmeny": "Eredmény",
+    },
     use_container_width=True,
     hide_index=True,
 )
