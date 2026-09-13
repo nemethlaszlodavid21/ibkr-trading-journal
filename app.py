@@ -14,20 +14,12 @@ from position_engine import poziciok_rekonstrualasa
 from trade_engine import lezart_tradek_letrehozasa
 
 
-# --------------------------------------------------
-# OLDALBEÁLLÍTÁS
-# --------------------------------------------------
-
 st.set_page_config(
     page_title="IBKR Trading Journal",
     page_icon="📈",
     layout="wide",
 )
 
-
-# --------------------------------------------------
-# MEGJELENÉS
-# --------------------------------------------------
 
 st.markdown(
     """
@@ -172,10 +164,6 @@ footer {
 )
 
 
-# --------------------------------------------------
-# SEGÉDFÜGGVÉNYEK
-# --------------------------------------------------
-
 @st.cache_data
 def adatok_betoltese(csv_tartalom):
     with tempfile.TemporaryDirectory() as ideiglenes_mappa:
@@ -250,10 +238,6 @@ def grafikon_formazasa(grafikon, magassag=390):
     return grafikon
 
 
-# --------------------------------------------------
-# FEJLÉC
-# --------------------------------------------------
-
 st.markdown(
     """
 <div class="dashboard-header">
@@ -266,15 +250,11 @@ st.markdown(
 )
 
 
-# --------------------------------------------------
-# CSV-FELTÖLTÉS
-# --------------------------------------------------
-
 st.sidebar.header("📂 Adatimport")
 
 st.sidebar.caption(
-    "Tölts fel egy IBKR Activity Statement "
-    "CSV-kimutatást."
+    "Tölts fel egy magyar vagy angol "
+    "IBKR Activity Statement CSV-kimutatást."
 )
 
 feltoltott_fajl = st.sidebar.file_uploader(
@@ -285,7 +265,7 @@ feltoltott_fajl = st.sidebar.file_uploader(
 if feltoltott_fajl is None:
     st.info(
         "A dashboard megjelenítéséhez tölts fel "
-        "egy IBKR Tevékenységkimutatás CSV-fájlt."
+        "egy IBKR Activity Statement CSV-fájlt."
     )
     st.stop()
 
@@ -303,16 +283,24 @@ try:
 
 except Exception as hiba:
     st.error(
-        "A CSV-fájl feldolgozása nem sikerült."
+        f"A CSV-fájl feldolgozása nem sikerült: "
+        f"{hiba}"
     )
-    st.exception(hiba)
+    st.stop()
+
+
+if tranzakciok_df.empty:
+    st.warning(
+        "A kimutatás nem tartalmaz feldolgozható "
+        "részvény- vagy ETF-tranzakciót."
+    )
     st.stop()
 
 
 if lezaro_tranzakciok_df.empty:
     st.warning(
-        "A feltöltött kimutatásban nincs "
-        "lezáró tranzakció."
+        "A kimutatás tartalmaz tranzakciókat, "
+        "de nincs benne lezáró eladás."
     )
     st.stop()
 
@@ -346,10 +334,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-# --------------------------------------------------
-# FELSŐ ÖSSZEFOGLALÓ
-# --------------------------------------------------
 
 st.subheader("Adatösszefoglaló")
 
@@ -397,10 +381,6 @@ Ezért a végrehajtások, kiszállások és lezárt pozíciók száma eltérhet.
 )
 
 
-# --------------------------------------------------
-# DEVIZAVÁLASZTÁS
-# --------------------------------------------------
-
 valaszthato_devizak = sorted(
     lezaro_tranzakciok_df["deviza"].unique()
 )
@@ -416,10 +396,6 @@ kivalasztott_deviza = st.selectbox(
 )
 
 
-# --------------------------------------------------
-# FŐ NÉZETEK
-# --------------------------------------------------
-
 kiszallas_tab, pozicio_tab = st.tabs(
     [
         "Realizált teljesítmény",
@@ -429,15 +405,13 @@ kiszallas_tab, pozicio_tab = st.tabs(
 
 
 # ==================================================
-# 1. KISZÁLLÁSI TELJESÍTMÉNY
+# REALIZÁLT TELJESÍTMÉNY
 # ==================================================
 
 with kiszallas_tab:
-    st.markdown(
-        """
-        Az egyes eladási tranzakciók realizált
-        eredménye és időbeli alakulása.
-        """
+    st.caption(
+        "Az egyes eladási tranzakciók realizált "
+        "eredménye és időbeli alakulása."
     )
 
     (
@@ -521,6 +495,7 @@ with kiszallas_tab:
         veszteseges_kiszallasok,
     )
 
+
     szurt_kiszallasok_df["kumulalt_pl"] = (
         szurt_kiszallasok_df[
             "realizalt_pl"
@@ -579,7 +554,12 @@ with kiszallas_tab:
             f"-{maximum_drawdown:,.2f} "
             f"{kivalasztott_deviza}"
         ),
+        help=(
+            "A kumulált realizált P/L korábbi "
+            "csúcsához képest mért legnagyobb visszaesés."
+        ),
     )
+
 
     bal_grafikon, jobb_grafikon = st.columns(
         [1.55, 1]
@@ -622,6 +602,7 @@ with kiszallas_tab:
             use_container_width=True,
         )
 
+
     with jobb_grafikon:
         drawdown_grafikon = px.area(
             szurt_kiszallasok_df,
@@ -659,6 +640,7 @@ with kiszallas_tab:
             drawdown_grafikon,
             use_container_width=True,
         )
+
 
     szurt_kiszallasok_df["honap"] = (
         szurt_kiszallasok_df[
@@ -735,6 +717,7 @@ with kiszallas_tab:
             use_container_width=True,
         )
 
+
     with havi_jobb:
         st.caption("Havi bontás")
 
@@ -761,6 +744,7 @@ with kiszallas_tab:
             hide_index=True,
             height=315,
         )
+
 
     st.subheader("Instrumentumok")
 
@@ -811,6 +795,7 @@ with kiszallas_tab:
         use_container_width=True,
     )
 
+
     st.subheader("Kiszállási tranzakciók")
 
     st.dataframe(
@@ -858,15 +843,13 @@ with kiszallas_tab:
 
 
 # ==================================================
-# 2. POZÍCIÓK ÉS HOLDING
+# POZÍCIÓK ÉS HOLDING
 # ==================================================
 
 with pozicio_tab:
-    st.markdown(
-        """
-        A több vételből és részleges kiszállásból
-        álló teljes pozícióciklusok elemzése.
-        """
+    st.caption(
+        "A több vételből és részleges kiszállásból "
+        "álló teljes pozícióciklusok elemzése."
     )
 
     szurt_poziciok_df = lezart_poziciok_df[
@@ -960,11 +943,13 @@ with pozicio_tab:
         len(szurt_nyitott_df),
     )
 
+
     st.subheader("Lezárt pozíciók")
 
     if szurt_poziciok_df.empty:
         st.info(
-            "Ebben a devizában nincs lezárt pozíció."
+            "Ebben a devizában nincs "
+            "lezárt pozíció."
         )
 
     else:
@@ -1032,6 +1017,7 @@ with pozicio_tab:
             use_container_width=True,
             hide_index=True,
         )
+
 
     st.subheader("Nyitott pozíciók")
 
